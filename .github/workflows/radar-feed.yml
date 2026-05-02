@@ -1,0 +1,62 @@
+name: Publish Radar Feed
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout TrendRadar
+        uses: actions/checkout@v4
+        with:
+          repository: molefool/TrendRadar
+          ref: master
+          path: trendradar
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install TrendRadar dependencies
+        working-directory: trendradar
+        run: uv sync --frozen --no-dev
+
+      - name: Run TrendRadar crawler
+        working-directory: trendradar
+        env:
+          GITHUB_ACTIONS: true
+        run: uv run python -m trendradar
+
+      - name: Export finance app radar feed
+        working-directory: trendradar
+        run: python scripts/export_radar_feed.py --input-dir output/news --output-dir ../_site/radar
+
+      - name: Add Pages metadata
+        run: touch _site/.nojekyll
+
+      - name: Publish feed to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          cd _site
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b gh-pages
+          git add .
+          git commit -m "Update radar feed"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin gh-pages
