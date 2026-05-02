@@ -1,0 +1,16 @@
+name: Smoke Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check runner
+        run: |
+          echo "runner ok"
+          date -u
